@@ -10,6 +10,8 @@ SRC := \
   src/parser.c \
   src/selector.c \
   src/stm.c \
+  src/socks5.c \
+  src/socks5_greeting.c \
   main.c
 
 OBJ := $(SRC:.c=.o)
