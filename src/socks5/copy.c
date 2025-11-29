@@ -8,17 +8,6 @@
 #define MSG_NOSIGNAL 0
 #endif
 
-static void origin_read(struct selector_key *key);
-static void origin_write(struct selector_key *key);
-static void origin_close(struct selector_key *key);
-
-const struct fd_handler origin_handler = {
-    .handle_read = origin_read,
-    .handle_write = origin_write,
-    .handle_close = origin_close,
-    .handle_block = NULL,
-};
-
 void copy_init(unsigned int state, struct selector_key *key) {
     struct socks5 *data = ATTACHMENT(key);
     
@@ -48,6 +37,9 @@ unsigned copy_read(struct selector_key *key) {
         ssize_t read_count = recv(key->fd, read_buffer, read_limit, 0);
         
         if (read_count < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                return COPY;  
+            }
             return ERROR;
         } else if (read_count == 0) {
             return DONE;
@@ -83,6 +75,9 @@ unsigned copy_read(struct selector_key *key) {
         ssize_t read_count = recv(key->fd, read_buffer, read_limit, 0);
         
         if (read_count < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                return COPY;  
+            }
             return ERROR;
         } else if (read_count == 0) {
             return DONE;
@@ -139,7 +134,28 @@ unsigned copy_write(struct selector_key *key) {
         return COPY;
         
     } else if (key->fd == data->origin_fd) {
-        //este es origin_write, incompleto
+        //escribir al origin desde origin_buffer
+        size_t write_limit;
+        
+        if (!buffer_can_read(&data->origin_buffer)) {
+            return COPY;
+        }
+        
+        uint8_t *write_buffer = buffer_read_ptr(&data->origin_buffer, &write_limit);
+        ssize_t write_count = send(key->fd, write_buffer, write_limit, MSG_NOSIGNAL);
+        
+        if (write_count <= 0) {
+            return ERROR;
+        }
+        
+        buffer_read_adv(&data->origin_buffer, write_count);
+        
+        if (!buffer_can_read(&data->origin_buffer)) {
+            if (selector_set_interest(key->s, data->origin_fd, OP_READ) != SELECTOR_SUCCESS) {
+                return ERROR;
+            }
+        }
+        
         return COPY;
     }
     
