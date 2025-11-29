@@ -1,34 +1,47 @@
-CPPFLAGS := -D_POSIX_C_SOURCE=200112L -D_DARWIN_C_SOURCE -include signal.h
-CFLAGS   := -std=c11 -O2 -Wall -Wextra -pedantic
-INCLUDES := -Isrc
-LDFLAGS  :=
+CC = gcc
+CFLAGS = -std=c11 -pedantic -pedantic-errors -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-variable -D_POSIX_C_SOURCE=200112L -DMSG_NOSIGNAL=0 -g
+LDFLAGS = -pthread
 
-SRC := \
-  src/buffer.c \
-  src/netutils.c \
-  src/parser_utils.c \
-  src/parser.c \
-  src/selector.c \
-  src/stm.c \
-  src/socks5.c \
-  src/socks5_greeting.c \
-  main.c
+SRC_DIR = src
+UTILS_DIR = $(SRC_DIR)/utils
+SOCKS5_DIR = $(SRC_DIR)/socks5
+AUTH_DIR = $(SRC_DIR)/auth
+BUILD_DIR = build
+BIN_DIR = .
 
-OBJ := $(SRC:.c=.o)
-BIN := socks5d
+UTILS_SRC = $(UTILS_DIR)/buffer.c $(UTILS_DIR)/selector.c $(UTILS_DIR)/stm.c \
+            $(UTILS_DIR)/netutils.c $(UTILS_DIR)/parser.c $(UTILS_DIR)/parser_utils.c
+            
+SOCKS5_SRC = $(SOCKS5_DIR)/socks5.c $(SOCKS5_DIR)/handshake.c \
+             $(SOCKS5_DIR)/request.c $(SOCKS5_DIR)/copy.c
 
-.PHONY: all clean run
+AUTH_SRC = $(AUTH_DIR)/auth.c
 
-all: $(BIN)
+MAIN_SRC = $(SRC_DIR)/main.c
 
-$(BIN): $(OBJ)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+ALL_SRC = $(UTILS_SRC) $(SOCKS5_SRC) $(AUTH_SRC) $(MAIN_SRC)
 
-%.o: %.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(INCLUDES) -c $< -o $@
+UTILS_OBJ = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(UTILS_SRC))
+SOCKS5_OBJ = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SOCKS5_SRC))
+AUTH_OBJ = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(AUTH_SRC))
+MAIN_OBJ = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(MAIN_SRC))
+
+ALL_OBJ = $(UTILS_OBJ) $(SOCKS5_OBJ) $(AUTH_OBJ) $(MAIN_OBJ)
+
+TARGET = $(BIN_DIR)/socks5d
+
+.PHONY: all clean
+
+all: $(TARGET)
+
+$(TARGET): $(ALL_OBJ)
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(OBJ) $(BIN)
-
-run: $(BIN)
-	./$(BIN) -p 1080
+	rm -rf $(BUILD_DIR)
+	rm -f $(TARGET)
