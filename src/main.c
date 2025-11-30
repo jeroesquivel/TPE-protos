@@ -8,8 +8,10 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <inttypes.h>
 
 #include "users/users.h"
+#include "metrics/metrics.h"
 #include "utils/selector.h"
 #include "socks5/socks5.h"
 
@@ -126,6 +128,7 @@ int main(int argc, char **argv) {
     
     socks5_pool_init();
     users_init();
+    metrics_init();
 
     while (!done) {
         err_msg = NULL;
@@ -134,6 +137,11 @@ int main(int argc, char **argv) {
             err_msg = "Serving";
             goto finally;
         }
+        
+        struct metrics m = metrics_get();
+        printf("\r[Métricas] Total: %" PRIu64 " | Actuales: %" PRIu64 " | Bytes: %" PRIu64 "    ", 
+            m.total_connections, m.current_connections, m.bytes_transferred);
+        fflush(stdout);
     }
     
     if (err_msg == NULL) {

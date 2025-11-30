@@ -1,5 +1,6 @@
 #include "copy.h"
 #include "socks5.h"
+#include "../metrics/metrics.h"
 #include <stdio.h>
 #include <errno.h>
 #include <sys/socket.h>
@@ -27,7 +28,6 @@ unsigned copy_read(struct selector_key *key) {
     struct socks5 *data = ATTACHMENT(key);
     
     if (key->fd == data->client_fd) {
-        //leer del cliente y escribir al origin_buffer
         size_t read_limit;
         
         if (!buffer_can_write(&data->origin_buffer)) {
@@ -47,11 +47,11 @@ unsigned copy_read(struct selector_key *key) {
         }
         
         buffer_write_adv(&data->origin_buffer, read_count);
+        metrics_add_bytes(read_count);
         
         size_t write_limit;
         uint8_t *write_buffer = buffer_read_ptr(&data->origin_buffer, &write_limit);
         ssize_t write_count = send(data->origin_fd, write_buffer, write_limit, MSG_NOSIGNAL);
-        
         
         if (write_count > 0) {
             buffer_read_adv(&data->origin_buffer, write_count);
@@ -66,7 +66,6 @@ unsigned copy_read(struct selector_key *key) {
         return COPY;
         
     } else if (key->fd == data->origin_fd) {
-        //leer del origin, escribir a client_buffer, enviar a cliente
         size_t read_limit;
         
         if (!buffer_can_write(&data->client_buffer)) {
@@ -86,11 +85,11 @@ unsigned copy_read(struct selector_key *key) {
         }
         
         buffer_write_adv(&data->client_buffer, read_count);
+        metrics_add_bytes(read_count);
         
         size_t write_limit;
         uint8_t *write_buffer = buffer_read_ptr(&data->client_buffer, &write_limit);
         ssize_t write_count = send(data->client_fd, write_buffer, write_limit, MSG_NOSIGNAL);
-        
         
         if (write_count > 0) {
             buffer_read_adv(&data->client_buffer, write_count);
@@ -112,7 +111,6 @@ unsigned copy_write(struct selector_key *key) {
     struct socks5 *data = ATTACHMENT(key);
     
     if (key->fd == data->client_fd) {
-        //escribir al cliente desde client_buffer
         size_t write_limit;
         
         if (!buffer_can_read(&data->client_buffer)) {
@@ -137,7 +135,6 @@ unsigned copy_write(struct selector_key *key) {
         return COPY;
         
     } else if (key->fd == data->origin_fd) {
-        //escribir al origin desde origin_buffer
         size_t write_limit;
         
         if (!buffer_can_read(&data->origin_buffer)) {
@@ -164,4 +161,3 @@ unsigned copy_write(struct selector_key *key) {
     
     return ERROR;
 }
-

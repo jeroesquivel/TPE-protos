@@ -7,6 +7,7 @@ UTILS_DIR = $(SRC_DIR)/utils
 SOCKS5_DIR = $(SRC_DIR)/socks5
 AUTH_DIR = $(SRC_DIR)/auth
 USERS_DIR = $(SRC_DIR)/users
+METRICS_DIR = $(SRC_DIR)/metrics
 BUILD_DIR = build
 BIN_DIR = .
 
@@ -22,7 +23,9 @@ USERS_SRC = $(USERS_DIR)/users.c
 
 MAIN_SRC = $(SRC_DIR)/main.c
 
-ALL_SRC = $(UTILS_SRC) $(SOCKS5_SRC) $(AUTH_SRC) $(USERS_SRC) $(MAIN_SRC)
+METRICS_SRC = $(METRICS_DIR)/metrics.c
+
+ALL_SRC = $(UTILS_SRC) $(SOCKS5_SRC) $(AUTH_SRC) $(USERS_SRC) $(METRICS_SRC) $(MAIN_SRC)
 
 ALL_OBJ = $(ALL_SRC:.c=.o)
 

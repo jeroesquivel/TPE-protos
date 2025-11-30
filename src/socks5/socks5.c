@@ -8,6 +8,7 @@
 
 #include "../auth/auth.h"
 #include "../utils/stm.h"
+#include "../metrics/metrics.h"
 #include "handshake.h"
 #include "request.h"
 #include "copy.h"
@@ -138,6 +139,7 @@ void socks5_passive_accept(struct selector_key *key) {
     }
     
     pool_size++;
+    metrics_connection_opened();
 }
 
 void close_connection(struct selector_key *key) {
@@ -168,6 +170,8 @@ void close_connection(struct selector_key *key) {
     if (pool_size > 0) {
         pool_size--;
     }
+    
+    metrics_connection_closed();
 }
 
 selector_status register_origin_selector(struct selector_key *key, int origin_fd, struct socks5 *data) {
