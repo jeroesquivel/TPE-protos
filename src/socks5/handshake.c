@@ -38,10 +38,8 @@ enum hello_state hello_process(struct hello_parser *p, buffer *b) {
                 p->state = HELLO_METHODS;
                 break;
                 
-            case HELLO_METHODS:
-                if (byte == 0x00 && p->method == 0xFF) {
-                    p->method = 0x00;
-                } else if (byte == 0x02 && p->method == 0xFF) {
+                case HELLO_METHODS:
+                if (byte == 0x02) {
                     p->method = 0x02;
                 }
                 

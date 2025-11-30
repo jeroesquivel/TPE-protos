@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "users/users.h"
 #include "utils/selector.h"
 #include "socks5/socks5.h"
 
@@ -124,7 +125,8 @@ int main(int argc, char **argv) {
     printf("Server ready and listening\n");
     
     socks5_pool_init();
-    
+    users_init();
+
     while (!done) {
         err_msg = NULL;
         ss = selector_select(selector);
@@ -155,7 +157,7 @@ finally:
     }
     
     selector_close();
-    
+    users_destroy();
     socks5_pool_destroy();
     
     if (server >= 0) {

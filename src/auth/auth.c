@@ -1,5 +1,6 @@
 #include "auth.h"
 #include "../socks5/socks5.h"
+#include "../users/users.h"
 #include <string.h>
 #include <sys/socket.h>
 
@@ -31,7 +32,7 @@ unsigned auth_read(struct selector_key *key) {
     if (nbytes < 2) {
         return AUTH_READ;
     }
-    
+
     if (buf[0] != 0x01) {
         return ERROR;
     }
@@ -45,16 +46,21 @@ unsigned auth_read(struct selector_key *key) {
     if (nbytes < 2 + ulen + 1 + plen) {
         return AUTH_READ;
     }
-    
+
     memcpy(data->auth.username, buf + 2, ulen);
     data->auth.username[ulen] = '\0';
     memcpy(data->auth.password, buf + 2 + ulen + 1, plen);
     data->auth.password[plen] = '\0';
     
-    data->auth.authenticated = true;    //cambiar
+    data->auth.authenticated = user_authenticate(data->auth.username, data->auth.password);
     
-    buffer_write(&data->origin_buffer, 0x01);
-    buffer_write(&data->origin_buffer, 0x00);
+    buffer_write(&data->origin_buffer, 0x01);  
+    
+    if (data->auth.authenticated) {
+        buffer_write(&data->origin_buffer, 0x00); 
+    } else {
+        buffer_write(&data->origin_buffer, 0x01);  
+    }
     
     if (selector_set_interest_key(key, OP_WRITE) != SELECTOR_SUCCESS) {
         return ERROR;
