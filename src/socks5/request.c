@@ -229,12 +229,17 @@ unsigned request_read(struct selector_key *key) {
 
 unsigned request_connect(struct selector_key *key) {
     struct socks5 *data = ATTACHMENT(key);
+    
+    printf("DEBUG request_connect: called with fd=%d, origin_fd=%d\n", key->fd, data->origin_fd);
+    
     int error = 0;
     socklen_t len = sizeof(error);
     
     if (getsockopt(data->origin_fd, SOL_SOCKET, SO_ERROR, &error, &len) < 0) {
         error = errno;
     }
+    
+    printf("DEBUG request_connect: getsockopt returned error=%d\n", error);
     
     if (error != 0) {
         close(data->origin_fd);
