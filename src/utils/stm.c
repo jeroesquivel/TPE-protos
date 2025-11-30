@@ -36,45 +36,25 @@ handle_first(struct state_machine *stm, struct selector_key *key) {
 
 inline static
 void jump(struct state_machine *stm, unsigned next, struct selector_key *key) {
-    printf("[STM] jump: current=%u, next=%u, max=%u\n", 
-           stm->current ? stm->current->state : 999, next, stm->max_state);
-    fflush(stdout);
     
-    if(next > stm->max_state) {
-        fprintf(stderr, "[STM ERROR] Invalid state: %u (max: %u)\n", next, stm->max_state);
+    if(next > stm->max_state) {;
         abort();
     }
     
     if(stm->current != stm->states + next) {
-        printf("[STM] Changing state\n");
-        fflush(stdout);
         
         if(stm->current != NULL && stm->current->on_departure != NULL) {
-            printf("[STM] Calling on_departure for state %u\n", stm->current->state);
-            fflush(stdout);
             stm->current->on_departure(stm->current->state, key);
         }
-        
-        printf("[STM] Setting new current state to %u\n", next);
-        fflush(stdout);
+
         stm->current = stm->states + next;
         
-        printf("[STM] New current state pointer: %p\n", (void*)stm->current);
-        printf("[STM] New current state value: %u\n", stm->current->state);
-        printf("[STM] on_arrival pointer: %p\n", (void*)stm->current->on_arrival);
-        fflush(stdout);
 
         if(NULL != stm->current->on_arrival) {
-            printf("[STM] Calling on_arrival for state %u\n", stm->current->state);
-            fflush(stdout);
             stm->current->on_arrival(stm->current->state, key);
-            printf("[STM] on_arrival returned\n");
-            fflush(stdout);
         }
     }
     
-    printf("[STM] jump completed\n");
-    fflush(stdout);
 }
 unsigned
 stm_handler_read(struct state_machine *stm, struct selector_key *key) {
