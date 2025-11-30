@@ -203,7 +203,8 @@ unsigned request_read(struct selector_key *key) {
                 }
                 
                 if (errno == EINPROGRESS) {
-                    selector_set_interest_key(key, OP_WRITE);
+                    selector_set_interest(key->s, fd, OP_WRITE);  
+                    selector_set_interest_key(key, OP_NOOP);      
                     return REQUEST_CONNECT;
                 }
                 
@@ -229,8 +230,10 @@ unsigned request_read(struct selector_key *key) {
 
 unsigned request_connect(struct selector_key *key) {
     struct socks5 *data = ATTACHMENT(key);
-    
-    printf("DEBUG request_connect: called with fd=%d, origin_fd=%d\n", key->fd, data->origin_fd);
+
+    if (key->fd != data->origin_fd) {
+        return REQUEST_CONNECT;
+    }
     
     int error = 0;
     socklen_t len = sizeof(error);
@@ -239,19 +242,20 @@ unsigned request_connect(struct selector_key *key) {
         error = errno;
     }
     
-    printf("DEBUG request_connect: getsockopt returned error=%d\n", error);
-    
     if (error != 0) {
+        selector_unregister_fd(key->s, data->origin_fd);
         close(data->origin_fd);
         data->origin_fd = -1;
+        data->request.reply = REQUEST_REPLY_CONNECTION_REFUSED;
         request_build_response(data->request.parser, &data->origin_buffer, REQUEST_REPLY_CONNECTION_REFUSED);
-        selector_set_interest_key(key, OP_WRITE);
+        selector_set_interest(key->s, data->client_fd, OP_WRITE);
         return REQUEST_WRITE;
     }
-    
+
     data->request.reply = REQUEST_REPLY_SUCCESS;
     request_build_response(data->request.parser, &data->origin_buffer, REQUEST_REPLY_SUCCESS);
-    selector_set_interest_key(key, OP_WRITE);
+    selector_set_interest(key->s, data->client_fd, OP_WRITE);
+    selector_set_interest(key->s, data->origin_fd, OP_READ);
     return REQUEST_WRITE;
 }
 
