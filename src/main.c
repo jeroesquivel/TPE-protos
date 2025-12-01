@@ -8,12 +8,12 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <inttypes.h>
 
-#include "users/users.h"
-#include "metrics/metrics.h"
 #include "utils/selector.h"
 #include "socks5/socks5.h"
+#include "users/users.h"
+#include "metrics/metrics.h"
+#include "admin/admin_server.h"
 
 #define MAX_PENDING 20
 
@@ -129,7 +129,11 @@ int main(int argc, char **argv) {
     socks5_pool_init();
     users_init();
     metrics_init();
-
+    
+    if (admin_server_init(selector, 8080) != 0) {
+        fprintf(stderr, "Warning: Could not start admin server\n");
+    }
+    
     while (!done) {
         err_msg = NULL;
         ss = selector_select(selector);
@@ -137,11 +141,6 @@ int main(int argc, char **argv) {
             err_msg = "Serving";
             goto finally;
         }
-        
-        struct metrics m = metrics_get();
-        printf("\r[Métricas] Total: %" PRIu64 " | Actuales: %" PRIu64 " | Bytes: %" PRIu64 "    ", 
-            m.total_connections, m.current_connections, m.bytes_transferred);
-        fflush(stdout);
     }
     
     if (err_msg == NULL) {
@@ -165,6 +164,8 @@ finally:
     }
     
     selector_close();
+    
+    admin_server_destroy();
     users_destroy();
     socks5_pool_destroy();
     
