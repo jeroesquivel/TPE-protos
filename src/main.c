@@ -58,98 +58,85 @@ int main(int argc, char **argv) {
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     
+    int ret = 0;
+
     if (inet_pton(AF_INET, socks_addr, &addr.sin_addr) <= 0) {
         err_msg = "Invalid address";
-        goto finally;
-    }
-    
-    addr.sin_port = htons(port);
-    
-    server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (server < 0) {
-        err_msg = "Unable to create socket";
-        goto finally;
-    }
-    
-    setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
-    
-    if (bind(server, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
-        err_msg = "Unable to bind socket";
-        goto finally;
-    }
-    
-    if (listen(server, MAX_PENDING) < 0) {
-        err_msg = "Unable to listen";
-        goto finally;
-    }
-    
-    if (selector_fd_set_nio(server) == -1) {
-        err_msg = "Getting server socket flags";
-        goto finally;
-    }
-    
-    const struct selector_init conf = {
-        .signal = SIGALRM,
-        .select_timeout = {
-            .tv_sec = 10,
-            .tv_nsec = 0,
-        },
-    };
-    
-    if (selector_init(&conf) != 0) {
-        err_msg = "Initializing selector";
-        goto finally;
-    }
-    
-    selector = selector_new(1024);
-    if (selector == NULL) {
-        err_msg = "Unable to create selector";
-        goto finally;
-    }
-    
-    const struct fd_handler socksv5 = {
-        .handle_read = socks5_passive_accept,
-    };
-    
-    ss = selector_register(selector, server, &socksv5, OP_READ, NULL);
-    if (ss != SELECTOR_SUCCESS) {
-        err_msg = "Registering fd";
-        goto finally;
-    }
-    
-    signal(SIGTERM, sigterm_handler);
-    signal(SIGINT, sigterm_handler);
-    signal(SIGPIPE, SIG_IGN);
-    
-    printf("Starting SOCKS5 server...\n");
-    printf("SOCKS port: %s:%d\n", socks_addr, port);
-    printf("Admin port: 127.0.0.1:8080\n");
-    printf("Server ready and listening\n");
-    
-    socks5_pool_init();
-    users_init();
-    metrics_init();
-    
-    if (admin_server_init(selector, 8080) != 0) {
-        fprintf(stderr, "Warning: Could not start admin server\n");
-    }
-    
-    while (!done) {
-        err_msg = NULL;
-        ss = selector_select(selector);
-        if (ss != SELECTOR_SUCCESS) {
-            err_msg = "Serving";
-            goto finally;
+    } else {
+        addr.sin_port = htons(port);
+
+        server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (server < 0) {
+            err_msg = "Unable to create socket";
+        } else {
+            setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
+
+            if (bind(server, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
+                err_msg = "Unable to bind socket";
+            } else if (listen(server, MAX_PENDING) < 0) {
+                err_msg = "Unable to listen";
+            } else if (selector_fd_set_nio(server) == -1) {
+                err_msg = "Getting server socket flags";
+            } else {
+                const struct selector_init conf = {
+                    .signal = SIGALRM,
+                    .select_timeout = {
+                        .tv_sec = 10,
+                        .tv_nsec = 0,
+                    },
+                };
+
+                if (selector_init(&conf) != 0) {
+                    err_msg = "Initializing selector";
+                } else {
+                    selector = selector_new(1024);
+                    if (selector == NULL) {
+                        err_msg = "Unable to create selector";
+                    } else {
+                        const struct fd_handler socksv5 = {
+                            .handle_read = socks5_passive_accept,
+                        };
+
+                        ss = selector_register(selector, server, &socksv5, OP_READ, NULL);
+                        if (ss != SELECTOR_SUCCESS) {
+                            err_msg = "Registering fd";
+                        } else {
+                            signal(SIGTERM, sigterm_handler);
+                            signal(SIGINT, sigterm_handler);
+                            signal(SIGPIPE, SIG_IGN);
+
+                            printf("Starting SOCKS5 server...\n");
+                            printf("SOCKS port: %s:%d\n", socks_addr, port);
+                            printf("Admin port: 127.0.0.1:8080\n");
+                            printf("Server ready and listening\n");
+
+                            socks5_pool_init();
+                            users_init();
+                            metrics_init();
+
+                            if (admin_server_init(selector, 8080) != 0) {
+                                fprintf(stderr, "Warning: Could not start admin server\n");
+                            }
+
+                            while (!done) {
+                                err_msg = NULL;
+                                ss = selector_select(selector);
+                                if (ss != SELECTOR_SUCCESS) {
+                                    err_msg = "Serving";
+                                    break;
+                                }
+                            }
+
+                            if (err_msg == NULL && ss == SELECTOR_SUCCESS) {
+                                err_msg = "Closing";
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
-    
-    if (err_msg == NULL) {
-        err_msg = "Closing";
-    }
-    
-    int ret = 0;
-    
-finally:
+
     if (ss != SELECTOR_SUCCESS) {
         fprintf(stderr, "%s: %s\n", (err_msg == NULL) ? "" : err_msg,
                 ss == SELECTOR_IO ? strerror(errno) : selector_error(ss));
