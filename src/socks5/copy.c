@@ -1,6 +1,7 @@
 #include "copy.h"
 #include "socks5.h"
 #include "../metrics/metrics.h"
+#include "../users/users.h"
 #include <stdio.h>
 #include <errno.h>
 #include <sys/socket.h>
@@ -48,6 +49,7 @@ unsigned copy_read(struct selector_key *key) {
         
         buffer_write_adv(&data->origin_buffer, read_count);
         metrics_add_bytes(read_count);
+        user_update_metrics(data->auth.username, (uint64_t)read_count);
         
         size_t write_limit;
         uint8_t *write_buffer = buffer_read_ptr(&data->origin_buffer, &write_limit);
@@ -86,6 +88,7 @@ unsigned copy_read(struct selector_key *key) {
         
         buffer_write_adv(&data->client_buffer, read_count);
         metrics_add_bytes(read_count);
+        user_update_metrics(data->auth.username, (uint64_t)read_count);
         
         size_t write_limit;
         uint8_t *write_buffer = buffer_read_ptr(&data->client_buffer, &write_limit);

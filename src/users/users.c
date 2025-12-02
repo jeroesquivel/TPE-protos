@@ -5,6 +5,11 @@
 
 static struct user users_db[MAX_USERS];
 static int users_count = 0;
+
+static struct user_connection connections_db[MAX_CONNECTION_LOG];
+static int connections_count = 0;
+static int connections_next_index = 0;
+
 static pthread_mutex_t users_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void users_init(void) {
@@ -12,6 +17,10 @@ void users_init(void) {
     
     memset(users_db, 0, sizeof(users_db));
     users_count = 0;
+
+    memset(connections_db, 0, sizeof(connections_db));
+    connections_count = 0;
+    connections_next_index = 0;
 
     strcpy(users_db[0].username, "user");
     strcpy(users_db[0].password, "pass");
@@ -27,6 +36,9 @@ void users_destroy(void) {
     pthread_mutex_lock(&users_mutex);
     memset(users_db, 0, sizeof(users_db));
     users_count = 0;
+    memset(connections_db, 0, sizeof(connections_db));
+    connections_count = 0;
+    connections_next_index = 0;
     pthread_mutex_unlock(&users_mutex);
 }
 
@@ -171,4 +183,48 @@ int user_count(void) {
     
     pthread_mutex_unlock(&users_mutex);
     return count;
+}
+
+int user_log_connection(const char *username, const char *destination, uint16_t port) {
+    if (username == NULL || destination == NULL) {
+        return -1;
+    }
+
+    pthread_mutex_lock(&users_mutex);
+
+    int index = connections_next_index;
+    connections_next_index = (connections_next_index + 1) % MAX_CONNECTION_LOG;
+
+    if (connections_count < MAX_CONNECTION_LOG) {
+        connections_count++;
+    }
+
+    struct user_connection *entry = &connections_db[index];
+    strncpy(entry->username, username, MAX_USERNAME - 1);
+    entry->username[MAX_USERNAME - 1] = '\0';
+    strncpy(entry->destination, destination, sizeof(entry->destination) - 1);
+    entry->destination[sizeof(entry->destination) - 1] = '\0';
+    entry->port = port;
+    entry->timestamp = time(NULL);
+
+    pthread_mutex_unlock(&users_mutex);
+    return 0;
+}
+
+int user_get_connections(struct user_connection *entries, int max_entries) {
+    if (entries == NULL || max_entries <= 0) {
+        return 0;
+    }
+
+    pthread_mutex_lock(&users_mutex);
+
+    int to_copy = connections_count < max_entries ? connections_count : max_entries;
+
+    for (int i = 0; i < to_copy; i++) {
+        int src_index = (connections_next_index - connections_count + i + MAX_CONNECTION_LOG) % MAX_CONNECTION_LOG;
+        entries[i] = connections_db[src_index];
+    }
+
+    pthread_mutex_unlock(&users_mutex);
+    return to_copy;
 }

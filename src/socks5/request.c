@@ -1,5 +1,6 @@
 #include "request.h"
 #include "socks5.h"
+#include "../users/users.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +13,23 @@
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
+
+static void build_destination_string(struct request_parser *parser, char *out, size_t out_len) {
+    if (parser == NULL || out == NULL || out_len == 0) {
+        return;
+    }
+
+    out[0] = '\0';
+
+    if (parser->address_type == ADDRESS_TYPE_DOMAIN) {
+        strncpy(out, (char *)parser->dst_addr, out_len - 1);
+        out[out_len - 1] = '\0';
+    } else if (parser->address_type == ADDRESS_TYPE_IPV4) {
+        inet_ntop(AF_INET, parser->dst_addr, out, (socklen_t)out_len);
+    } else if (parser->address_type == ADDRESS_TYPE_IPV6) {
+        inet_ntop(AF_INET6, parser->dst_addr, out, (socklen_t)out_len);
+    }
+}
 
 void request_parser_init(struct request_parser *parser) {
     if (parser == NULL) return;
@@ -253,6 +271,9 @@ unsigned request_read(struct selector_key *key) {
 
     if (connect_ret == 0) {
         data->request.reply = REQUEST_REPLY_SUCCESS;
+        char dest[256];
+        build_destination_string(parser, dest, sizeof(dest));
+        user_log_connection(data->auth.username, dest, parser->dst_port);
         request_build_response(parser, &data->origin_buffer, REQUEST_REPLY_SUCCESS);
         selector_set_interest_key(key, OP_WRITE);
         return REQUEST_WRITE;
@@ -326,6 +347,9 @@ unsigned request_connect(struct selector_key *key) {
     
     if (error == 0) {
         data->request.reply = REQUEST_REPLY_SUCCESS;
+        char dest[256];
+        build_destination_string(data->request.parser, dest, sizeof(dest));
+        user_log_connection(data->auth.username, dest, data->request.parser->dst_port);
         request_build_response(data->request.parser, &data->origin_buffer, REQUEST_REPLY_SUCCESS);
         selector_set_interest(key->s, data->client_fd, OP_WRITE);
         selector_set_interest(key->s, data->origin_fd, OP_READ);
@@ -355,6 +379,9 @@ unsigned request_connect(struct selector_key *key) {
             
             if (connect_ret == 0) {
                 data->request.reply = REQUEST_REPLY_SUCCESS;
+                char dest[256];
+                build_destination_string(data->request.parser, dest, sizeof(dest));
+                user_log_connection(data->auth.username, dest, data->request.parser->dst_port);
                 request_build_response(data->request.parser, &data->origin_buffer, REQUEST_REPLY_SUCCESS);
                 selector_set_interest(key->s, data->client_fd, OP_WRITE);
                 selector_set_interest(key->s, data->origin_fd, OP_READ);

@@ -9,6 +9,7 @@ CMD_GET_METRICS = 0x01
 CMD_LIST_USERS = 0x02
 CMD_ADD_USER = 0x03
 CMD_DEL_USER = 0x04
+CMD_LIST_CONNECTIONS = 0x05
 
 STATUS_OK = 0x00
 STATUS_ERROR = 0x01
@@ -105,6 +106,44 @@ def del_user(username, host='127.0.0.1', port=8080):
     else:
         print(f"Error: status={status}")
 
+def list_connections(host='127.0.0.1', port=8080):
+    print("\n=== LIST CONNECTIONS ===")
+    status, data = send_request(host, port, CMD_LIST_CONNECTIONS)
+
+    if status == STATUS_OK:
+        if not data:
+            print("No connections logged")
+            return
+
+        count = data[0]
+        print(f"Connections: {count}")
+
+        ptr = 1
+        for i in range(count):
+            if ptr >= len(data):
+                break
+
+            uname_len = data[ptr]
+            ptr += 1
+            username = data[ptr:ptr+uname_len].decode('utf-8')
+            ptr += uname_len
+
+            dest_len = data[ptr]
+            ptr += 1
+            destination = data[ptr:ptr+dest_len].decode('utf-8')
+            ptr += dest_len
+
+            port_val = struct.unpack('!H', data[ptr:ptr+2])[0]
+            ptr += 2
+
+            ts = struct.unpack('!Q', data[ptr:ptr+8])[0]
+            ptr += 8
+
+            print(f"  - {username} -> {destination}:{port_val} at {ts}")
+
+    else:
+        print(f"Error: status={status}")
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("Usage:")
@@ -112,6 +151,7 @@ if __name__ == '__main__':
         print("  python3 admin_client.py users")
         print("  python3 admin_client.py add <username> <password>")
         print("  python3 admin_client.py del <username>")
+        print("  python3 admin_client.py conns")
         sys.exit(1)
     
     cmd = sys.argv[1]
@@ -120,6 +160,8 @@ if __name__ == '__main__':
         get_metrics()
     elif cmd == 'users':
         list_users()
+    elif cmd == 'conns':
+        list_connections()
     elif cmd == 'add' and len(sys.argv) == 4:
         add_user(sys.argv[2], sys.argv[3])
     elif cmd == 'del' and len(sys.argv) == 3:

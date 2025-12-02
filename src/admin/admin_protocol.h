@@ -10,7 +10,8 @@ enum admin_command {
     ADMIN_CMD_LIST_USERS = 0x02,
     ADMIN_CMD_ADD_USER = 0x03,
     ADMIN_CMD_DEL_USER = 0x04,
-    ADMIN_CMD_GET_CONFIG = 0x05,
+    ADMIN_CMD_LIST_CONNECTIONS = 0x05,
+    ADMIN_CMD_GET_CONFIG = 0x06,
 };
 
 enum admin_status {

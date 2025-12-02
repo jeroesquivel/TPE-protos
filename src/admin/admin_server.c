@@ -135,6 +135,44 @@ static void process_add_user(struct admin_client *client) {
     client->response.length = 0;
 }
 
+static void process_list_connections(struct admin_client *client) {
+    struct user_connection entries[MAX_CONNECTION_LOG];
+    int count = user_get_connections(entries, MAX_CONNECTION_LOG);
+
+    uint8_t *ptr = client->response.data;
+    *ptr++ = (uint8_t)count;
+
+    for (int i = 0; i < count; i++) {
+        size_t username_len = strlen(entries[i].username);
+        if (username_len > 255) {
+            username_len = 255;
+        }
+        *ptr++ = (uint8_t)username_len;
+        memcpy(ptr, entries[i].username, username_len);
+        ptr += username_len;
+
+        size_t dest_len = strlen(entries[i].destination);
+        if (dest_len > 255) {
+            dest_len = 255;
+        }
+        *ptr++ = (uint8_t)dest_len;
+        memcpy(ptr, entries[i].destination, dest_len);
+        ptr += dest_len;
+
+        uint16_t port_net = htons(entries[i].port);
+        memcpy(ptr, &port_net, sizeof(uint16_t));
+        ptr += sizeof(uint16_t);
+
+        uint64_t ts = (uint64_t)entries[i].timestamp;
+        ts = htobe64(ts);
+        memcpy(ptr, &ts, sizeof(uint64_t));
+        ptr += sizeof(uint64_t);
+    }
+
+    client->response.status = ADMIN_STATUS_OK;
+    client->response.length = ptr - client->response.data;
+}
+
 static void process_del_user(struct admin_client *client) {
     char username[256] = {0};
     
@@ -170,6 +208,9 @@ static void process_request(struct admin_client *client) {
             break;
         case ADMIN_CMD_DEL_USER:
             process_del_user(client);
+            break;
+        case ADMIN_CMD_LIST_CONNECTIONS:
+            process_list_connections(client);
             break;
         default:
             client->response.status = ADMIN_STATUS_INVALID_CMD;
