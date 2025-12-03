@@ -14,6 +14,7 @@
 #include "users/users.h"
 #include "metrics/metrics.h"
 #include "admin/admin_server.h"
+#include "dns/dns_resolver.h"
 
 #define MAX_PENDING 20
 
@@ -24,6 +25,8 @@ sigterm_handler(const int signal) {
     printf("Signal %d, cleaning up and exiting\n", signal);
     done = true;
 }
+
+extern void dns_callback_handler(struct dns_response *response);
 
 int main(int argc, char **argv) {
     unsigned port = 1080;
@@ -54,24 +57,47 @@ int main(int argc, char **argv) {
     fd_selector selector = NULL;
     int server = -1;
     
-    struct sockaddr_in addr;
+    struct sockaddr_storage addr;
+    socklen_t addr_len;
     memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
     
     int ret = 0;
 
-    if (inet_pton(AF_INET, socks_addr, &addr.sin_addr) <= 0) {
-        err_msg = "Invalid address";
+    int is_ipv6 = (strchr(socks_addr, ':') != NULL);
+    
+    if (is_ipv6) {
+        struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)&addr;
+        addr6->sin6_family = AF_INET6;
+        addr6->sin6_port = htons(port);
+        
+        if (inet_pton(AF_INET6, socks_addr, &addr6->sin6_addr) <= 0) {
+            err_msg = "Invalid IPv6 address";
+        } else {
+            addr_len = sizeof(struct sockaddr_in6);
+            server = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+            int no = 0;
+            setsockopt(server, IPPROTO_IPV6, IPV6_V6ONLY, &no, sizeof(no));
+        }
     } else {
-        addr.sin_port = htons(port);
+        struct sockaddr_in *addr4 = (struct sockaddr_in *)&addr;
+        addr4->sin_family = AF_INET;
+        addr4->sin_port = htons(port);
+        
+        if (inet_pton(AF_INET, socks_addr, &addr4->sin_addr) <= 0) {
+            err_msg = "Invalid IPv4 address";
+        } else {
+            addr_len = sizeof(struct sockaddr_in);
+            server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        }
+    }
 
-        server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (err_msg == NULL) {
         if (server < 0) {
             err_msg = "Unable to create socket";
         } else {
             setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int));
 
-            if (bind(server, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
+            if (bind(server, (struct sockaddr*)&addr, addr_len) < 0) {
                 err_msg = "Unable to bind socket";
             } else if (listen(server, MAX_PENDING) < 0) {
                 err_msg = "Unable to listen";
@@ -114,6 +140,11 @@ int main(int argc, char **argv) {
                             users_init();
                             metrics_init();
 
+                            dns_resolver_set_callback(dns_callback_handler);
+                            if (dns_resolver_init(selector) != 0) {
+                                fprintf(stderr, "Warning: Could not start DNS resolver\n");
+                            }
+
                             if (admin_server_init(selector, 8080) != 0) {
                                 fprintf(stderr, "Warning: Could not start admin server\n");
                             }
@@ -152,6 +183,7 @@ int main(int argc, char **argv) {
     
     selector_close();
     
+    dns_resolver_destroy();
     admin_server_destroy();
     users_destroy();
     socks5_pool_destroy();

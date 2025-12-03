@@ -65,7 +65,7 @@ static const struct state_definition socks5_states[] = {
     },
     {
         .state = REQUEST_DNS,
-        .on_block_ready = request_dns,
+        .on_read_ready = request_dns,
     },
     {
         .state = REQUEST_CONNECT,
@@ -221,4 +221,8 @@ int socks5_pool_init(void) {
 
 void socks5_pool_destroy(void) {
     pool_size = 0;
+}
+
+selector_status register_origin_selector_from_key(fd_selector s, int origin_fd, struct socks5 *data) {
+    return selector_register(s, origin_fd, &socks5_handler, OP_READ, data);
 }

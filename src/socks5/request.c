@@ -1,6 +1,7 @@
 #include "request.h"
 #include "socks5.h"
 #include "../users/users.h"
+#include "../dns/dns_resolver.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,7 +15,7 @@
 #define MSG_NOSIGNAL 0
 #endif
 
-static void build_destination_string(struct request_parser *parser, char *out, size_t out_len) {
+void build_destination_string(struct request_parser *parser, char *out, size_t out_len) {
     if (parser == NULL || out == NULL || out_len == 0) {
         return;
     }
@@ -171,7 +172,7 @@ static int resolve_address(struct request_parser *parser, struct addrinfo **resu
     return ret;
 }
 
-static int try_connect(struct addrinfo *addr, int *out_fd) {
+int try_connect(struct addrinfo *addr, int *out_fd) {
     int fd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
     if (fd < 0) {
         return -1;
@@ -185,6 +186,60 @@ static int try_connect(struct addrinfo *addr, int *out_fd) {
     int ret = connect(fd, addr->ai_addr, addr->ai_addrlen);
     *out_fd = fd;
     return ret;
+}
+
+void dns_callback_handler(struct dns_response *response) {
+    struct socks5 *data = (struct socks5 *)response->data;
+    
+    data->origin_addrinfo = response->result;
+    data->current_addrinfo = response->result;
+    data->resolution_from_getaddrinfo = (response->error == 0 && response->result != NULL);
+    
+    if (response->error != 0 || response->result == NULL) {
+        request_build_response(data->request.parser, &data->origin_buffer, REQUEST_REPLY_HOST_UNREACHABLE);
+        selector_set_interest(data->selector, data->client_fd, OP_WRITE);
+        data->stm.current = &data->stm.states[REQUEST_WRITE];
+        free(response);
+        return;
+    }
+    
+    int origin_fd = -1;
+    int connect_ret = try_connect(data->current_addrinfo, &origin_fd);
+    
+    if (origin_fd < 0 || register_origin_selector_from_key(data->selector, origin_fd, data) != SELECTOR_SUCCESS) {
+        if (origin_fd >= 0) close(origin_fd);
+        freeaddrinfo(data->origin_addrinfo);
+        data->origin_addrinfo = NULL;
+        request_build_response(data->request.parser, &data->origin_buffer, REQUEST_REPLY_HOST_UNREACHABLE);
+        selector_set_interest(data->selector, data->client_fd, OP_WRITE);
+        data->stm.current = &data->stm.states[REQUEST_WRITE];
+        free(response);
+        return;
+    }
+    
+    data->origin_fd = origin_fd;
+    
+    if (connect_ret == 0) {
+        data->request.reply = REQUEST_REPLY_SUCCESS;
+        char dest[256];
+        build_destination_string(data->request.parser, dest, sizeof(dest));
+        user_log_connection(data->auth.username, dest, data->request.parser->dst_port);
+        request_build_response(data->request.parser, &data->origin_buffer, REQUEST_REPLY_SUCCESS);
+        selector_set_interest(data->selector, data->client_fd, OP_WRITE);
+        data->stm.current = &data->stm.states[REQUEST_WRITE];
+    } else if (errno == EINPROGRESS) {
+        selector_set_interest(data->selector, origin_fd, OP_WRITE);
+        selector_set_interest(data->selector, data->client_fd, OP_NOOP);
+        data->stm.current = &data->stm.states[REQUEST_CONNECT];
+    } else {
+        close(origin_fd);
+        data->origin_fd = -1;
+        request_build_response(data->request.parser, &data->origin_buffer, REQUEST_REPLY_CONNECTION_REFUSED);
+        selector_set_interest(data->selector, data->client_fd, OP_WRITE);
+        data->stm.current = &data->stm.states[REQUEST_WRITE];
+    }
+    
+    free(response);
 }
 
 void request_read_init(const unsigned state, struct selector_key *key) {
@@ -222,6 +277,23 @@ unsigned request_read(struct selector_key *key) {
         request_build_response(parser, &data->origin_buffer, REQUEST_REPLY_FAILURE);
         selector_set_interest_key(key, OP_WRITE);
         return REQUEST_WRITE;
+    }
+
+    if (parser->address_type == ADDRESS_TYPE_DOMAIN) {
+        char port_str[6];
+        snprintf(port_str, sizeof(port_str), "%u", parser->dst_port);
+        
+        data->selector = key->s;
+        data->current_key = key;
+        
+        if (dns_resolver_query((char*)parser->dst_addr, port_str, data) != 0) {
+            request_build_response(parser, &data->origin_buffer, REQUEST_REPLY_FAILURE);
+            selector_set_interest_key(key, OP_WRITE);
+            return REQUEST_WRITE;
+        }
+        
+        selector_set_interest_key(key, OP_NOOP);
+        return REQUEST_DNS;
     }
 
     struct addrinfo *addrinfo_list = NULL;
@@ -331,6 +403,132 @@ unsigned request_read(struct selector_key *key) {
     return REQUEST_WRITE;
 }
 
+unsigned request_dns(struct selector_key *key) {
+    struct socks5 *data = ATTACHMENT(key);
+    printf("DEBUG: request_dns - origin_addrinfo=%p, reply=%d\n", 
+        (void*)data->origin_addrinfo, data->request.reply);
+ 
+    if (data->origin_addrinfo == NULL && data->request.reply != REQUEST_REPLY_HOST_UNREACHABLE) {
+        printf("DEBUG: DNS not ready yet, returning REQUEST_DNS\n");
+        return REQUEST_DNS;
+    }
+    
+    printf("DEBUG: DNS ready, proceeding with connection\n");
+    struct request_parser *parser = data->request.parser;
+    
+    if (data->request.reply == REQUEST_REPLY_HOST_UNREACHABLE) {
+        request_build_response(parser, &data->origin_buffer, REQUEST_REPLY_HOST_UNREACHABLE);
+        selector_set_interest_key(key, OP_WRITE);
+        return REQUEST_WRITE;
+    }
+    
+    if (data->origin_addrinfo == NULL) {
+        return REQUEST_DNS;
+    }
+    
+    int origin_fd = -1;
+    int connect_ret = try_connect(data->current_addrinfo, &origin_fd);
+    
+    if (origin_fd < 0) {
+        data->current_addrinfo = data->current_addrinfo->ai_next;
+        
+        while (data->current_addrinfo != NULL) {
+            connect_ret = try_connect(data->current_addrinfo, &origin_fd);
+            if (origin_fd >= 0) break;
+            data->current_addrinfo = data->current_addrinfo->ai_next;
+        }
+        
+        if (origin_fd < 0) {
+            if (data->origin_addrinfo != NULL && data->resolution_from_getaddrinfo) {
+                freeaddrinfo(data->origin_addrinfo);
+            }
+            data->origin_addrinfo = NULL;
+            request_build_response(parser, &data->origin_buffer, REQUEST_REPLY_HOST_UNREACHABLE);
+            selector_set_interest_key(key, OP_WRITE);
+            return REQUEST_WRITE;
+        }
+    }
+    
+    if (register_origin_selector(key, origin_fd, data) != SELECTOR_SUCCESS) {
+        close(origin_fd);
+        if (data->origin_addrinfo != NULL && data->resolution_from_getaddrinfo) {
+            freeaddrinfo(data->origin_addrinfo);
+        }
+        data->origin_addrinfo = NULL;
+        request_build_response(parser, &data->origin_buffer, REQUEST_REPLY_FAILURE);
+        selector_set_interest_key(key, OP_WRITE);
+        return REQUEST_WRITE;
+    }
+    
+    data->origin_fd = origin_fd;
+    
+    if (connect_ret == 0) {
+        data->request.reply = REQUEST_REPLY_SUCCESS;
+        char dest[256];
+        build_destination_string(parser, dest, sizeof(dest));
+        user_log_connection(data->auth.username, dest, parser->dst_port);
+        request_build_response(parser, &data->origin_buffer, REQUEST_REPLY_SUCCESS);
+        selector_set_interest_key(key, OP_WRITE);
+        return REQUEST_WRITE;
+    }
+    
+    if (errno == EINPROGRESS) {
+        selector_set_interest(key->s, origin_fd, OP_WRITE);
+        selector_set_interest_key(key, OP_NOOP);
+        return REQUEST_CONNECT;
+    }
+    
+    selector_unregister_fd(key->s, origin_fd);
+    close(origin_fd);
+    data->origin_fd = -1;
+    
+    data->current_addrinfo = data->current_addrinfo->ai_next;
+    
+    while (data->current_addrinfo != NULL) {
+        connect_ret = try_connect(data->current_addrinfo, &origin_fd);
+        
+        if (origin_fd >= 0) {
+            if (register_origin_selector(key, origin_fd, data) != SELECTOR_SUCCESS) {
+                close(origin_fd);
+                data->current_addrinfo = data->current_addrinfo->ai_next;
+                continue;
+            }
+            
+            data->origin_fd = origin_fd;
+            
+            if (connect_ret == 0) {
+                data->request.reply = REQUEST_REPLY_SUCCESS;
+                char dest[256];
+                build_destination_string(parser, dest, sizeof(dest));
+                user_log_connection(data->auth.username, dest, parser->dst_port);
+                request_build_response(parser, &data->origin_buffer, REQUEST_REPLY_SUCCESS);
+                selector_set_interest_key(key, OP_WRITE);
+                return REQUEST_WRITE;
+            }
+            
+            if (errno == EINPROGRESS) {
+                selector_set_interest(key->s, origin_fd, OP_WRITE);
+                selector_set_interest_key(key, OP_NOOP);
+                return REQUEST_CONNECT;
+            }
+            
+            selector_unregister_fd(key->s, origin_fd);
+            close(origin_fd);
+            data->origin_fd = -1;
+        }
+        
+        data->current_addrinfo = data->current_addrinfo->ai_next;
+    }
+    
+    if (data->origin_addrinfo != NULL && data->resolution_from_getaddrinfo) {
+        freeaddrinfo(data->origin_addrinfo);
+    }
+    data->origin_addrinfo = NULL;
+    request_build_response(parser, &data->origin_buffer, REQUEST_REPLY_HOST_UNREACHABLE);
+    selector_set_interest_key(key, OP_WRITE);
+    return REQUEST_WRITE;
+}
+
 unsigned request_connect(struct selector_key *key) {
     struct socks5 *data = ATTACHMENT(key);
 
@@ -434,21 +632,6 @@ unsigned request_write(struct selector_key *key) {
         return ERROR;
     }
     
-    if (data->request.reply == REQUEST_REPLY_SUCCESS && data->request.parser != NULL) {
-        char dest[256] = {0};
-        struct request_parser *parser = data->request.parser;
-        
-        if (parser->address_type == ADDRESS_TYPE_DOMAIN) {
-            strncpy(dest, (char*)parser->dst_addr, sizeof(dest) - 1);
-        } else if (parser->address_type == ADDRESS_TYPE_IPV4) {
-            inet_ntop(AF_INET, parser->dst_addr, dest, sizeof(dest));
-        } else if (parser->address_type == ADDRESS_TYPE_IPV6) {
-            inet_ntop(AF_INET6, parser->dst_addr, dest, sizeof(dest));
-        }
-        
-        user_log_connection(data->auth.username, dest, parser->dst_port);
-    }
-    
     if (selector_set_interest_key(key, OP_READ) != SELECTOR_SUCCESS) {
         return ERROR;
     }
@@ -457,9 +640,4 @@ unsigned request_write(struct selector_key *key) {
     data->request.parser = NULL;
     
     return COPY;
-}
-
-unsigned request_dns(struct selector_key *key) {
-    //inc
-    return REQUEST_READ;
 }

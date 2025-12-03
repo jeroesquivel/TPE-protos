@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h> 
 
 #include "../utils/buffer.h"
 #include "../utils/selector.h"
@@ -60,5 +61,8 @@ enum request_state request_parser_consume(struct request_parser *parser, buffer 
 bool request_parser_is_done(const struct request_parser *parser);
 bool request_parser_has_error(const struct request_parser *parser);
 bool request_build_response(const struct request_parser *parser, buffer *buf, uint8_t reply_code);
+
+int try_connect(struct addrinfo *addr, int *out_fd);
+void build_destination_string(struct request_parser *parser, char *out, size_t out_len);
 
 #endif

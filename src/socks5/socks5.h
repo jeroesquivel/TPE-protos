@@ -51,9 +51,7 @@ struct socks5 {
     } request;
     
     fd_selector selector;
-    //struct gaicb dns_req;
-    //char dns_host[256];
-    //char dns_port[6];
+    struct selector_key *current_key;
 };
 
 enum socks5_state {
@@ -73,6 +71,7 @@ enum socks5_state {
 void socks5_passive_accept(struct selector_key *key);
 void close_connection(struct selector_key *key);
 selector_status register_origin_selector(struct selector_key *key, int origin_fd, struct socks5 *data);
+selector_status register_origin_selector_from_key(fd_selector s, int origin_fd, struct socks5 *data);
 
 int socks5_pool_init(void);
 void socks5_pool_destroy(void);

@@ -9,6 +9,7 @@ AUTH_DIR = $(SRC_DIR)/auth
 USERS_DIR = $(SRC_DIR)/users
 METRICS_DIR = $(SRC_DIR)/metrics
 ADMIN_DIR = $(SRC_DIR)/admin
+DNS_DIR = $(SRC_DIR)/dns
 BUILD_DIR = build
 BIN_DIR = .
 
@@ -26,9 +27,11 @@ METRICS_SRC = $(METRICS_DIR)/metrics.c
 
 ADMIN_SRC = $(ADMIN_DIR)/admin_server.c
 
+DNS_SRC = $(DNS_DIR)/dns_resolver.c
+
 MAIN_SRC = $(SRC_DIR)/main.c
 
-ALL_SRC = $(UTILS_SRC) $(SOCKS5_SRC) $(AUTH_SRC) $(USERS_SRC) $(METRICS_SRC) $(ADMIN_SRC) $(MAIN_SRC)
+ALL_SRC = $(UTILS_SRC) $(SOCKS5_SRC) $(AUTH_SRC) $(USERS_SRC) $(METRICS_SRC) $(ADMIN_SRC) $(DNS_SRC) $(MAIN_SRC)
 
 ALL_OBJ = $(ALL_SRC:.c=.o)
 
