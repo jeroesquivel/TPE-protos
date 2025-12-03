@@ -434,6 +434,21 @@ unsigned request_write(struct selector_key *key) {
         return ERROR;
     }
     
+    if (data->request.reply == REQUEST_REPLY_SUCCESS && data->request.parser != NULL) {
+        char dest[256] = {0};
+        struct request_parser *parser = data->request.parser;
+        
+        if (parser->address_type == ADDRESS_TYPE_DOMAIN) {
+            strncpy(dest, (char*)parser->dst_addr, sizeof(dest) - 1);
+        } else if (parser->address_type == ADDRESS_TYPE_IPV4) {
+            inet_ntop(AF_INET, parser->dst_addr, dest, sizeof(dest));
+        } else if (parser->address_type == ADDRESS_TYPE_IPV6) {
+            inet_ntop(AF_INET6, parser->dst_addr, dest, sizeof(dest));
+        }
+        
+        user_log_connection(data->auth.username, dest, parser->dst_port);
+    }
+    
     if (selector_set_interest_key(key, OP_READ) != SELECTOR_SUCCESS) {
         return ERROR;
     }
