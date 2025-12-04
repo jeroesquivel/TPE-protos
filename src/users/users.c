@@ -22,9 +22,10 @@ void users_init(void) {
     connections_count = 0;
     connections_next_index = 0;
 
-    strcpy(users_db[0].username, "user");
-    strcpy(users_db[0].password, "pass");
+    strcpy(users_db[0].username, "admin");
+    strcpy(users_db[0].password, "1234");
     users_db[0].active = true;
+    users_db[0].role = ROLE_ADMIN;
     users_db[0].bytes_transferred = 0;
     users_db[0].total_connections = 0;
     users_count = 1;
@@ -66,7 +67,7 @@ bool user_authenticate(const char *username, const char *password) {
     return false;
 }
 
-bool user_add(const char *username, const char *password) {
+bool user_add(const char *username, const char *password, user_role_t role) {
     if (username == NULL || password == NULL) {
         return false;
     }
@@ -93,6 +94,7 @@ bool user_add(const char *username, const char *password) {
     strcpy(users_db[users_count].username, username);
     strcpy(users_db[users_count].password, password);
     users_db[users_count].active = true;
+    users_db[users_count].role = role;
     users_db[users_count].bytes_transferred = 0;
     users_db[users_count].total_connections = 0;
     users_db[users_count].last_connection = 0;
@@ -114,6 +116,67 @@ bool user_delete(const char *username) {
             users_db[i].active = false;
             pthread_mutex_unlock(&users_mutex);
             return true;
+        }
+    }
+    
+    pthread_mutex_unlock(&users_mutex);
+    return false;
+}
+
+bool user_change_password(const char *username, const char *new_password) {
+    if (username == NULL || new_password == NULL) {
+        return false;
+    }
+    
+    if (strlen(new_password) == 0 || strlen(new_password) >= MAX_PASSWORD) {
+        return false;
+    }
+    
+    pthread_mutex_lock(&users_mutex);
+    
+    for (int i = 0; i < users_count; i++) {
+        if (users_db[i].active && strcmp(users_db[i].username, username) == 0) {
+            strcpy(users_db[i].password, new_password);
+            pthread_mutex_unlock(&users_mutex);
+            return true;
+        }
+    }
+    
+    pthread_mutex_unlock(&users_mutex);
+    return false;
+}
+
+bool user_change_role(const char *username, user_role_t new_role) {
+    if (username == NULL) {
+        return false;
+    }
+    
+    pthread_mutex_lock(&users_mutex);
+    
+    for (int i = 0; i < users_count; i++) {
+        if (users_db[i].active && strcmp(users_db[i].username, username) == 0) {
+            users_db[i].role = new_role;
+            pthread_mutex_unlock(&users_mutex);
+            return true;
+        }
+    }
+    
+    pthread_mutex_unlock(&users_mutex);
+    return false;
+}
+
+bool user_is_admin(const char *username) {
+    if (username == NULL) {
+        return false;
+    }
+    
+    pthread_mutex_lock(&users_mutex);
+    
+    for (int i = 0; i < users_count; i++) {
+        if (users_db[i].active && strcmp(users_db[i].username, username) == 0) {
+            bool is_admin = (users_db[i].role == ROLE_ADMIN);
+            pthread_mutex_unlock(&users_mutex);
+            return is_admin;
         }
     }
     

@@ -127,7 +127,7 @@ static void process_add_user(struct admin_client *client) {
     
     strcpy(password, (char*)ptr);
     
-    if (user_add(username, password)) {
+    if (user_add(username, password, ROLE_USER)) {
         client->response.status = ADMIN_STATUS_OK;
     } else {
         client->response.status = ADMIN_STATUS_USER_EXISTS;
