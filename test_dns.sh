@@ -13,8 +13,6 @@ rm -f /tmp/test_*.log
 
 PID1=$!
 
-sleep 0.5
-
 (
   echo "[$(date +%H:%M:%S.%N)] Iniciando conexión 2 (google.com)"
   time curl --max-time 30 --proxy socks5h://user:pass@localhost:1080 http://google.com > /dev/null 2>&1

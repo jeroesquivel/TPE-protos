@@ -9,6 +9,7 @@ AUTH_DIR = $(SRC_DIR)/auth
 USERS_DIR = $(SRC_DIR)/users
 METRICS_DIR = $(SRC_DIR)/metrics
 ADMIN_DIR = $(SRC_DIR)/admin
+ADMIN_CLIENT = $(BIN_DIR)/admin-client
 DNS_DIR = $(SRC_DIR)/dns
 BUILD_DIR = build
 BIN_DIR = .
@@ -25,9 +26,11 @@ USERS_SRC = $(USERS_DIR)/users.c
 
 METRICS_SRC = $(METRICS_DIR)/metrics.c
 
-ADMIN_SRC = $(ADMIN_DIR)/admin_server.c
+ADMIN_SRC = $(ADMIN_DIR)/admin_server.c $(ADMIN_DIR)/admin_auth.c $(ADMIN_DIR)/admin_commands.c
 
 DNS_SRC = $(DNS_DIR)/dns_resolver.c
+
+ADMIN_CLIENT_SRC = $(SRC_DIR)/admin_client.c
 
 MAIN_SRC = $(SRC_DIR)/main.c
 
@@ -39,11 +42,15 @@ TARGET = $(BIN_DIR)/socks5d
 
 .PHONY: all clean
 
-all: $(TARGET)
+all: $(TARGET) $(ADMIN_CLIENT)
+
+$(ADMIN_CLIENT): $(ADMIN_CLIENT_SRC)
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $(ADMIN_CLIENT_SRC)
 
 $(TARGET): $(ALL_SRC)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -o $@ $(ALL_SRC) $(LDFLAGS)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(ADMIN_CLIENT)

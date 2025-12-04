@@ -177,14 +177,14 @@ int main(int argc, char **argv) {
         ret = 1;
     }
     
+    admin_server_destroy(selector);
+
     if (selector != NULL) {
         selector_destroy(selector);
     }
-    
+
     selector_close();
-    
     dns_resolver_destroy();
-    admin_server_destroy();
     users_destroy();
     socks5_pool_destroy();
     

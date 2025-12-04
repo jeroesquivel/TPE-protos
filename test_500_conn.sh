@@ -1,13 +1,13 @@
 #!/bin/bash
 
-echo "=== Test 500 conexiones==="
+echo "--- Test 500 conexiones---"
 
 SUCCESS=0
 FAILED=0
 
 for i in {1..500}; do
   (
-    if curl --max-time 10 --proxy socks5h://user:pass@localhost:1080 http://google.com > /dev/null 2>&1; then
+    if curl --max-time 10 --proxy socks5h://admin:1234@localhost:1080 http://google.com > /dev/null 2>&1; then
       echo "✓ $i"
     else
       echo "✗ $i"
@@ -24,5 +24,5 @@ echo "Esperando a que todas terminen..."
 wait
 
 echo ""
-echo "=== Verificando métricas ==="
-python3 admin_client.py metrics
+echo "--- Verificando metricas ---"
+./admin-client -u admin -P 1234 metrics
