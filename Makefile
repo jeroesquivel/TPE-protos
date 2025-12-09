@@ -15,7 +15,6 @@ USERS_DIR = $(SRC_DIR)/users
 METRICS_DIR = $(SRC_DIR)/metrics
 ADMIN_DIR = $(SRC_DIR)/admin
 DNS_DIR = $(SRC_DIR)/dns
-BUILD_DIR = build
 BIN_DIR = .
 
 UTILS_SRC = $(UTILS_DIR)/buffer.c $(UTILS_DIR)/selector.c $(UTILS_DIR)/stm.c \
@@ -42,14 +41,16 @@ ADMIN_CLIENT_SRC = $(SRC_DIR)/admin_client.c
 
 all: $(TARGET) $(ADMIN_CLIENT)
 
-$(TARGET): $(ALL_SRC)
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(TARGET): $(ALL_OBJ)
 	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) -o $@ $(ALL_SRC) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $(ALL_OBJ) $(LDFLAGS)
 
 $(ADMIN_CLIENT): $(ADMIN_CLIENT_SRC)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -o $@ $(ADMIN_CLIENT_SRC)
 
 clean:
-	rm -f $(TARGET) $(ADMIN_CLIENT)
-	
+	rm -f $(TARGET) $(ADMIN_CLIENT) $(ALL_OBJ)
