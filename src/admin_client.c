@@ -1,3 +1,14 @@
+#ifdef __APPLE__
+#include <libkern/OSByteOrder.h>
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+#define htobe16(x) OSSwapHostToBigInt16(x)
+#define be16toh(x) OSSwapBigToHostInt16(x)
+#else
+#define _DEFAULT_SOURCE
+#include <endian.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,17 +36,6 @@
 #define STATUS_PERMISSION_DENIED 0x05
 #define STATUS_INVALID_ARGS 0x06
 #define STATUS_AUTH_FAILED 0x07
-
-#ifdef __APPLE__
-#include <libkern/OSByteOrder.h>
-#define htobe64(x) OSSwapHostToBigInt64(x)
-#define be64toh(x) OSSwapBigToHostInt64(x)
-#define htobe16(x) OSSwapHostToBigInt16(x)
-#define be16toh(x) OSSwapBigToHostInt16(x)
-#else
-#define _DEFAULT_SOURCE
-#include <endian.h>
-#endif
 
 static int connect_to_server(const char *host, int port) {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
