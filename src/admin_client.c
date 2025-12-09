@@ -179,7 +179,7 @@ static void cmd_metrics(int sockfd) {
     bytes_trans = be64toh(bytes_trans);
     start_time = be64toh(start_time);
     
-    printf("=== METRICS ===\n");
+    printf("--- METRICS ---\n");
     printf("Total connections: %llu\n", (unsigned long long)total_conn);
     printf("Current connections: %llu\n", (unsigned long long)current_conn);
     printf("Bytes transferred: %llu\n", (unsigned long long)bytes_trans);
@@ -204,7 +204,7 @@ static void cmd_users(int sockfd) {
         return;
     }
     
-    printf("=== USERS ===\n");
+    printf("--- USERS ---\n");
     
     uint8_t count = data[0];
     printf("Total: %d\n", count);
@@ -263,7 +263,7 @@ static void cmd_add_user(int sockfd, const char *username, const char *password)
         return;
     }
     
-    printf("=== ADD USER: %s ===\n", username);
+    printf("--- ADD USER: %s ---\n", username);
     if (status == STATUS_OK) {
         printf("User added successfully\n");
     } else if (status == STATUS_USER_EXISTS) {
@@ -294,7 +294,7 @@ static void cmd_del_user(int sockfd, const char *username) {
         return;
     }
     
-    printf("=== DELETE USER: %s ===\n", username);
+    printf("--- DELETE USER: %s ---\n", username);
     if (status == STATUS_OK) {
         printf("User deleted successfully\n");
     } else if (status == STATUS_USER_NOT_FOUND) {
@@ -324,7 +324,7 @@ static void cmd_connections(int sockfd) {
         return;
     }
     
-    printf("=== CONNECTIONS ===\n");
+    printf("--- CONNECTIONS ---\n");
     
     if (data_len == 0) {
         printf("No connections logged\n");
@@ -402,7 +402,7 @@ static void cmd_change_password(int sockfd, const char *username, const char *ne
         return;
     }
     
-    printf("=== CHANGE PASSWORD: %s ===\n", username);
+    printf("--- CHANGE PASSWORD: %s ---\n", username);
     if (status == STATUS_OK) {
         printf("Password changed successfully\n");
     } else if (status == STATUS_USER_NOT_FOUND) {
@@ -440,7 +440,7 @@ static void cmd_change_role(int sockfd, const char *username, const char *role) 
         return;
     }
     
-    printf("=== CHANGE ROLE: %s ===\n", username);
+    printf("--- CHANGE ROLE: %s ---\n", username);
     if (status == STATUS_OK) {
         printf("Role changed successfully to '%s'\n", role);
     } else if (status == STATUS_USER_NOT_FOUND) {
