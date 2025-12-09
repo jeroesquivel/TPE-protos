@@ -1,10 +1,3 @@
-#include "admin_commands.h"
-#include "../users/users.h"
-#include "../metrics/metrics.h"
-#include <string.h>
-#include <stdio.h>
-#include <arpa/inet.h>
-
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
 #define htobe64(x) OSSwapHostToBigInt64(x)
@@ -14,6 +7,14 @@
 #else
 #include <endian.h>
 #endif
+
+#include "admin_commands.h"
+#include "../users/users.h"
+#include "../metrics/metrics.h"
+#include <string.h>
+#include <stdio.h>
+#include <arpa/inet.h>
+
 
 bool admin_command_requires_admin(uint8_t command) {
     switch (command) {
