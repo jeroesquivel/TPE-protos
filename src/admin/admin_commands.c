@@ -5,6 +5,7 @@
 #define htobe16(x) OSSwapHostToBigInt16(x)
 #define be16toh(x) OSSwapBigToHostInt16(x)
 #else
+#define _DEFAULT_SOURCE
 #include <endian.h>
 #endif
 
@@ -14,7 +15,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <arpa/inet.h>
-
 
 bool admin_command_requires_admin(uint8_t command) {
     switch (command) {
@@ -134,8 +134,8 @@ void admin_process_del_user(struct admin_response *response, const char *data) {
 }
 
 void admin_process_list_connections(struct admin_response *response) {
-    struct user_connection entries[255];
-    int count = user_get_connections(entries, 255);
+    struct user_connection entries[100];
+    int count = user_get_connections(entries, 100);
 
     uint8_t *ptr = response->data;
     uint8_t *end = response->data + sizeof(response->data);
