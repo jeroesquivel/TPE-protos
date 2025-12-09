@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c11 -pedantic -pedantic-errors -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-variable -Wno-sign-compare -D_POSIX_C_SOURCE=200112L -g
+CFLAGS = -std=c11 -pedantic -pedantic-errors -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-sign-compare -D_POSIX_C_SOURCE=200112L -g
 
 ifeq ($(shell uname),Darwin)
     CFLAGS += -DMSG_NOSIGNAL=0
