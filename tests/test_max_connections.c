@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
             printf("%d conexiones abiertas...\n", connection_count);
         }
         
-        sleep(1);
+        sleep(0.1);
     }
     
     printf("\n#### RESULTADOS ####\n");
