@@ -176,7 +176,7 @@ void run_test(int num_connections, const char *username, const char *password) {
         
         //delay para no saturar
         if (RAMP_UP_DELAY_MS > 0 && i < num_connections - 1) {
-            usleep(RAMP_UP_DELAY_MS * 1000);
+            sleep(RAMP_UP_DELAY_MS);
         }
     }
     
