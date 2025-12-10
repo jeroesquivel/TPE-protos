@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
             failed++;
         }
         
-        sleep(10);
+        usleep(10000);
     }
     
     if (successful == 0) {
