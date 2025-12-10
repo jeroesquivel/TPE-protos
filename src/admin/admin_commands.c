@@ -58,8 +58,8 @@ void admin_process_get_metrics(struct admin_response *response) {
 }
 
 void admin_process_list_users(struct admin_response *response) {
-    struct user *users_array[MAX_USERS];
-    int count = user_list(users_array, MAX_USERS);
+    struct user *users_array[MAX_USERS_DB];
+    int count = user_list(users_array, MAX_USERS_DB);
 
     uint8_t *ptr = response->data;
     uint8_t *end = response->data + sizeof(response->data);

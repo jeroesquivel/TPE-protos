@@ -15,6 +15,7 @@
 #include "metrics/metrics.h"
 #include "admin/admin_server.h"
 #include "dns/dns_resolver.h"
+#include "utils/args.h"
 
 #define MAX_PENDING 20
 
@@ -29,23 +30,8 @@ sigterm_handler(const int signal) {
 extern void dns_callback_handler(struct dns_response *response);
 
 int main(int argc, char **argv) {
-    unsigned port = 1080;
-    const char *socks_addr = "0.0.0.0";
-    
-    int opt;
-    while ((opt = getopt(argc, argv, "p:l:")) != -1) {
-        switch (opt) {
-            case 'p':
-                port = atoi(optarg);
-                break;
-            case 'l':
-                socks_addr = optarg;
-                break;
-            default:
-                fprintf(stderr, "Usage: %s [-p port] [-l addr]\n", argv[0]);
-                exit(EXIT_FAILURE);
-        }
-    }
+    struct socks5args args;
+    parse_args(argc, argv, &args);
     
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
@@ -63,14 +49,14 @@ int main(int argc, char **argv) {
     
     int ret = 0;
 
-    int is_ipv6 = (strchr(socks_addr, ':') != NULL);
+    int is_ipv6 = (strchr(args.socks_addr, ':') != NULL);
     
     if (is_ipv6) {
         struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)&addr;
         addr6->sin6_family = AF_INET6;
-        addr6->sin6_port = htons(port);
+        addr6->sin6_port = htons(args.socks_port);
         
-        if (inet_pton(AF_INET6, socks_addr, &addr6->sin6_addr) <= 0) {
+        if (inet_pton(AF_INET6, args.socks_addr, &addr6->sin6_addr) <= 0) {
             err_msg = "Invalid IPv6 address";
         } else {
             addr_len = sizeof(struct sockaddr_in6);
@@ -81,9 +67,9 @@ int main(int argc, char **argv) {
     } else {
         struct sockaddr_in *addr4 = (struct sockaddr_in *)&addr;
         addr4->sin_family = AF_INET;
-        addr4->sin_port = htons(port);
+        addr4->sin_port = htons(args.socks_port);
         
-        if (inet_pton(AF_INET, socks_addr, &addr4->sin_addr) <= 0) {
+        if (inet_pton(AF_INET, args.socks_addr, &addr4->sin_addr) <= 0) {
             err_msg = "Invalid IPv4 address";
         } else {
             addr_len = sizeof(struct sockaddr_in);
@@ -132,12 +118,12 @@ int main(int argc, char **argv) {
                             signal(SIGPIPE, SIG_IGN);
 
                             printf("Starting SOCKS5 server...\n");
-                            printf("SOCKS port: %s:%d\n", socks_addr, port);
-                            printf("Admin port: 127.0.0.1:8080\n");
+                            printf("SOCKS port: %s:%d\n", args.socks_addr, args.socks_port);
+                            printf("Admin port: %s:%d\n", args.mng_addr, args.mng_port);
                             printf("Server ready and listening\n");
 
                             socks5_pool_init();
-                            users_init();
+                            users_init(&args);
                             metrics_init();
 
                             dns_resolver_set_callback(dns_callback_handler);
@@ -145,7 +131,7 @@ int main(int argc, char **argv) {
                                 fprintf(stderr, "Warning: Could not start DNS resolver\n");
                             }
 
-                            if (admin_server_init(selector, 8080) != 0) {
+                            if (admin_server_init(selector, args.mng_port) != 0) {
                                 fprintf(stderr, "Warning: Could not start admin server\n");
                             }
 
@@ -177,10 +163,13 @@ int main(int argc, char **argv) {
         ret = 1;
     }
     
-    admin_server_destroy(selector);
+    if (selector != NULL) {
+        admin_server_destroy(selector);
+    }
 
     if (selector != NULL) {
         selector_destroy(selector);
+        selector = NULL;
     }
 
     selector_close();

@@ -1,9 +1,10 @@
 #include "users.h"
+#include "../utils/args.h"
 #include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
 
-static struct user users_db[MAX_USERS];
+static struct user users_db[MAX_USERS_DB];
 static int users_count = 0;
 
 static struct user_connection connections_db[MAX_CONNECTION_LOG];
@@ -12,7 +13,7 @@ static int connections_next_index = 0;
 
 static pthread_mutex_t users_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void users_init(void) {
+void users_init(struct socks5args *args) {
     pthread_mutex_lock(&users_mutex);
     
     memset(users_db, 0, sizeof(users_db));
@@ -22,13 +23,33 @@ void users_init(void) {
     connections_count = 0;
     connections_next_index = 0;
 
-    strcpy(users_db[0].username, "admin");
-    strcpy(users_db[0].password, "1234");
-    users_db[0].active = true;
-    users_db[0].role = ROLE_ADMIN;
-    users_db[0].bytes_transferred = 0;
-    users_db[0].total_connections = 0;
-    users_count = 1;
+    if (args != NULL) {
+        for (int i = 0; i < 10 && args->users[i].name != NULL; i++) {
+            if (users_count >= MAX_USERS_DB) break;
+            
+            strncpy(users_db[users_count].username, args->users[i].name, MAX_USERNAME - 1);
+            users_db[users_count].username[MAX_USERNAME - 1] = '\0';
+            
+            strncpy(users_db[users_count].password, args->users[i].pass, MAX_PASSWORD - 1);
+            users_db[users_count].password[MAX_PASSWORD - 1] = '\0';
+            
+            users_db[users_count].active = true;
+            users_db[users_count].role = ROLE_ADMIN;
+            users_db[users_count].bytes_transferred = 0;
+            users_db[users_count].total_connections = 0;
+            users_count++;
+        }
+    }
+    
+    if (users_count == 0) {
+        strcpy(users_db[0].username, "admin");
+        strcpy(users_db[0].password, "1234");
+        users_db[0].active = true;
+        users_db[0].role = ROLE_ADMIN;
+        users_db[0].bytes_transferred = 0;
+        users_db[0].total_connections = 0;
+        users_count = 1;
+    }
     
     pthread_mutex_unlock(&users_mutex);
 }
@@ -86,7 +107,7 @@ bool user_add(const char *username, const char *password, user_role_t role) {
         }
     }
 
-    if (users_count >= MAX_USERS) {
+    if (users_count >= MAX_USERS_DB) {
         pthread_mutex_unlock(&users_mutex);
         return false;
     }

@@ -3,9 +3,10 @@ CFLAGS = -std=c11 -pedantic -pedantic-errors -Wall -Wextra -Wno-unused-parameter
 
 ifeq ($(shell uname),Darwin)
     CFLAGS += -DMSG_NOSIGNAL=0
+    LDFLAGS = -pthread
+else
+    LDFLAGS = -pthread -Wl,--allow-multiple-definition
 endif
-
-LDFLAGS = -pthread
 
 SRC_DIR = src
 UTILS_DIR = $(SRC_DIR)/utils
@@ -18,7 +19,8 @@ DNS_DIR = $(SRC_DIR)/dns
 BIN_DIR = .
 
 UTILS_SRC = $(UTILS_DIR)/buffer.c $(UTILS_DIR)/selector.c $(UTILS_DIR)/stm.c \
-            $(UTILS_DIR)/netutils.c $(UTILS_DIR)/parser.c $(UTILS_DIR)/parser_utils.c
+            $(UTILS_DIR)/netutils.c $(UTILS_DIR)/parser.c $(UTILS_DIR)/parser_utils.c \
+            $(UTILS_DIR)/args.c
 
 SOCKS5_SRC = $(SOCKS5_DIR)/socks5.c $(SOCKS5_DIR)/handshake.c \
              $(SOCKS5_DIR)/request.c $(SOCKS5_DIR)/copy.c
@@ -46,7 +48,7 @@ all: $(TARGET) $(ADMIN_CLIENT)
 
 $(TARGET): $(ALL_OBJ)
 	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) -o $@ $(ALL_OBJ) $(LDFLAGS)
+	$(CC) -o $@ $(ALL_OBJ) $(LDFLAGS)
 
 $(ADMIN_CLIENT): $(ADMIN_CLIENT_SRC)
 	@mkdir -p $(BIN_DIR)
@@ -54,3 +56,4 @@ $(ADMIN_CLIENT): $(ADMIN_CLIENT_SRC)
 
 clean:
 	rm -f $(TARGET) $(ADMIN_CLIENT) $(ALL_OBJ)
+	
