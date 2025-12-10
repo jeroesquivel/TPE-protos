@@ -133,26 +133,25 @@ void dns_resolver_destroy(void) {
     shutdown_flag = true;
     pthread_cond_signal(&queue_cond);
     pthread_mutex_unlock(&queue_mutex);
-    
-    pthread_join(worker_thread, NULL);
-    
-    if (pipe_fds[0] >= 0) {
-        if (global_selector != NULL) {
-            selector_unregister_fd(global_selector, pipe_fds[0]);
-        }
-        close(pipe_fds[0]);
-        pipe_fds[0] = -1;
-    }
-    
+
     if (pipe_fds[1] >= 0) {
         close(pipe_fds[1]);
         pipe_fds[1] = -1;
     }
     
+    pthread_join(worker_thread, NULL);
+    
+    if (pipe_fds[0] >= 0) {
+        close(pipe_fds[0]);
+        pipe_fds[0] = -1;
+    }
+    
     pthread_mutex_lock(&queue_mutex);
     for (int i = 0; i < queue_size; i++) {
         int idx = (queue_head + i) % MAX_QUEUE_SIZE;
-        free(request_queue[idx]);
+        if (request_queue[idx] != NULL) {
+            free(request_queue[idx]);
+        }
     }
     queue_size = 0;
     pthread_mutex_unlock(&queue_mutex);
