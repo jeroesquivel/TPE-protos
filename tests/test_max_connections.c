@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <time.h>
+#include <sys/time.h>
 
 #define PROXY_HOST "127.0.0.1"
 #define PROXY_PORT 1080
