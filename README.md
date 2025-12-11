@@ -44,10 +44,14 @@ El servidor proxy SOCKS5 se ejecuta mediante el siguiente comando:
 ### Opciones de línea de comandos
 
 ```
--l <dirección>    Dirección de escucha (por defecto: 0.0.0.0)
+-h                Imprime la ayuda y termina.
+-l <SOCKS addr>   Dirección donde servirá el proxy SOCKS. (por defecto: 0.0.0.0)
                   Utilizar :: para modo dual-stack IPv6
--p <puerto>       Puerto SOCKS5 (por defecto: 1080)
--h                Mostrar ayuda
+-L <conf addr>    Dirección donde servirá el servicio de management/administración. (por defecto: 127.0.0.1)
+-p <SOCKS port>   Puerto entrante conexiones SOCKS. (por defecto: 1080)
+-P <conf port>    Puerto entrante conexiones configuración/management. (por defecto: 8080)
+-u <name>:<pass>  Usuario y contraseña de usuario que puede usar el proxy. Hasta 10.
+-v                Imprime información sobre la versión y termina.
 ```
 
 ### Ejemplos de ejecución
@@ -137,12 +141,12 @@ Ejemplos:
 ### Con curl
 
 ```bash
-curl --proxy socks5://admin:1234@localhost:1080 http://example.com
+curl --proxy socks5://admin:1234@localhost:1080 http://google.com
 ```
 
 Para resolución DNS remota:
 ```bash
-curl --proxy socks5h://admin:1234@localhost:1080 http://example.com
+curl --proxy socks5h://admin:1234@localhost:1080 http://google.com
 ```
 
 ## Sistema de Permisos
@@ -188,6 +192,11 @@ Los intentos de ejecutar comandos administrativos por parte de usuarios estánda
 │   ├── utils/              # Utilidades (selector, buffer, etc)
 │   ├── main.c
 │   └── admin_client.c      # Cliente de administración
+├── tests/                  # Scripts de pruebas de rendimiento
+│   ├── test_max_connections
+│   ├── test_latency
+│   ├── test_thoughput
+│   └── Makefile
 ├── Makefile
 └── README.md
 ```
@@ -219,27 +228,40 @@ Ver documentación completa en el informe -> SOON.
 ## Limitaciones conocidas
 
 - Usuarios volátiles (se pierden al reiniciar el servidor)
-- Máximo 100 usuarios simultáneos
-- Logs limitados a 255 conexiones más recientes
+- Máximo 100 usuarios 
 - Sin persistencia de métricas
 - Sin cifrado de credenciales 
 
 ## Pruebas
-(Solo tests de desarollo, no son los finales)
-### Test de 500 conexiones concurrentes
+
+Los test de rendimiento se encuentran en la carpeta tests/
+
+## Compilación
 ```bash
-./test_500_conn.sh
+make clean
+make all
 ```
 
-### Test de DNS no bloqueante
-```bash
-./test_dns.sh
+Esto generará dos binarios de los tests:
+- `test_max_connections`
+- `test_latency` 
+- `test_throughput`
 ```
 
-### Verificar métricas
+## Uso
+
+## Ejecución del Servidor
+
+El servidor proxy SOCKS5 se ejecuta mediante el siguiente comando:
+
 ```bash
-./admin-client -u admin -P 1234 metrics
-```
+./socks5d -l 0.0.0.0 -p 1080 -P 8080 -u user:pass
+
+Luego ejecutar el test deseado en otra terminal mediante:
+
+```bash
+./nombre_del_test user pass
+
 
 ## Información del Proyecto
 
