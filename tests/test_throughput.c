@@ -9,6 +9,7 @@
 #include <sys/time.h>
 #include <errno.h>
 #include <semaphore.h>
+#include <time.h>
 
 #define PROXY_HOST "127.0.0.1"
 #define PROXY_PORT 1080
@@ -176,7 +177,11 @@ void run_test(int num_connections, const char *username, const char *password) {
         
         //delay para no saturar
         if (RAMP_UP_DELAY_MS > 0 && i < num_connections - 1) {
-            usleep(RAMP_UP_DELAY_MS * 1000);
+            struct timespec ts = {
+                .tv_sec = RAMP_UP_DELAY_MS / 1000,
+                .tv_nsec = (RAMP_UP_DELAY_MS % 1000) * 1000000
+            };
+            nanosleep(&ts, NULL);
         }
     }
     

@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <time.h>
 
 #define PROXY_HOST "127.0.0.1"
 #define PROXY_PORT 1080
@@ -145,7 +146,11 @@ int main(int argc, char *argv[]) {
             printf("%d conexiones abiertas...\n", connection_count);
         }
         
-        usleep(1000);
+        struct timespec ts = {
+            .tv_sec = 0,
+            .tv_nsec = 1000000
+        };
+        nanosleep(&ts, NULL);
     }
     
     printf("\n#### RESULTADOS ####\n");

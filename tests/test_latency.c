@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <math.h>
+#include <time.h>
 
 #define PROXY_HOST "127.0.0.1"
 #define PROXY_PORT 1080
@@ -164,7 +165,11 @@ int main(int argc, char *argv[]) {
             failed++;
         }
         
-        usleep(10000);
+        struct timespec ts = {
+            .tv_sec = 0,
+            .tv_nsec = 10000000
+        };
+        nanosleep(&ts, NULL);
     }
     
     if (successful == 0) {
