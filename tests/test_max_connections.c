@@ -13,7 +13,7 @@
 #define PROXY_HOST "127.0.0.1"
 #define PROXY_PORT 1080
 #define MAX_CONNECTIONS 10000
-#define MAX_CONSECUTIVE_FAILURES 10
+#define MAX_CONSECUTIVE_FAILURES 5
 #define CONNECT_TIMEOUT_SEC 3
 #define IO_TIMEOUT_SEC 3
 
@@ -245,6 +245,6 @@ int main(int argc, char *argv[]) {
         }
     }
     
-    printf("✓ Test finalizado\n\n");
+    printf("Test finalizado\n\n");
     return 0;
 }
