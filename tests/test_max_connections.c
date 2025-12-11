@@ -210,7 +210,7 @@ int main(int argc, char *argv[]) {
         
         if (connection_count % 100 == 0) {
             time_t elapsed = time(NULL) - start_time;
-            printf("✓ %d conexiones abiertas (%.1f conn/seg)\n", 
+            printf("%d conexiones abiertas (%.1f conn/seg)\n", 
                    connection_count, 
                    elapsed > 0 ? connection_count / (double)elapsed : 0);
         }
@@ -225,10 +225,10 @@ int main(int argc, char *argv[]) {
     printf("\n═══════════════════════════════════════════════════════════\n");
     printf("  RESULTADOS\n");
     printf("═══════════════════════════════════════════════════════════\n");
-    printf("✓ Máximo de conexiones concurrentes: %d\n", connection_count);
-    printf("⏱  Tiempo total: %ld segundos\n", total_time);
+    printf("Máximo de conexiones concurrentes: %d\n", connection_count);
+    printf("  Tiempo total: %ld segundos\n", total_time);
     if (total_time > 0) {
-        printf("📊 Velocidad promedio: %.1f conexiones/segundo\n", 
+        printf("Velocidad promedio: %.1f conexiones/segundo\n", 
                connection_count / (double)total_time);
     }
     print_statistics();
@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
     printf("   Presionar Enter para cerrarlas y terminar...\n");
     getchar();
     
-    printf("\n🔄 Cerrando %d conexiones...\n", connection_count);
+    printf("\nCerrando %d conexiones...\n", connection_count);
     for (int i = 0; i < connection_count; i++) {
         if (connection_fds[i] >= 0) {
             close(connection_fds[i]);
